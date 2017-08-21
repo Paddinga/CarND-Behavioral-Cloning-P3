@@ -113,7 +113,7 @@ def aug_crop(image):
 # Main pipeline
 if __name__ == "__name__":
     # Paths for training data
-    paths = [../data/]
+    paths = ['../data/']
 
     # Hyperparameters
     EPOCHS = 5
