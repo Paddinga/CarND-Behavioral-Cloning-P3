@@ -1,15 +1,9 @@
 import os
-import csv
 import cv2
 import numpy as np
 from scipy import ndimage
 from keras.models import Sequential, load_model
 from keras.layers import Flatten, Dense, Lambda, Conv2D, Dropout, Cropping2D
-from keras.preprocessing.image import load_img
-from sklearn.model_selection import train_test_split
-from random import randint
-from sklearn.utils import shuffle
-import matplotlib.image as mpimg
 import pandas as pd
 import math
 from random import randint
@@ -35,36 +29,6 @@ def training_model():
     model.compile(optimizer='adam', loss='mse')
     return model
 
-def prepare_data(paths):
-    image_paths = []
-    angles = []
-    for i in range(len(paths)):
-        with open(paths[i] + "driving_log.csv", newline='') as csv_data:
-            driving_data = list(csv.reader(csv_data, skipinitialspace=True, delimiter=',', quoting=csv.QUOTE_NONE))
-        for row in driving_data[1:]:
-            # Drop data with speed < 0.1
-            if float(row[6]) < 0.1:
-                continue
-            # Drop data with steering angle = 0
-            if float(row[3]) == 0:
-                continue
-            # Drop data with absolute steering angle > 3.0
-            if (float(row[3]) > 3.0) | (float(row[3]) < - 3.0):
-                continue
-            image_paths.append(row[0])
-            angles.append(float(row[3]))
-            # get left image path and angle
-            image_paths.append(row[1])
-            angles.append(float(row[3]) + 0.2)
-            # get left image path and angle
-            image_paths.append(row[2])
-            angles.append(float(row[3]) - 0.2)
-    image_paths = np.array(image_paths)
-    angles = np.array(angles)
-    print('Data prepared', image_paths.shape, angles.shape)
-    return image_paths, angles
-
-
 def preprocess(image):
     # Crop image to ROI on street
     img = aug_crop(image)
@@ -85,7 +49,7 @@ def augm_image(image, angle):
     return image, angle
 
 
-def load_image(row, psc):
+def load_image(row):
     angle = np.float(row['steer'])
     rnd = np.random.random()
     if rnd < 1 / 3:
@@ -98,15 +62,11 @@ def load_image(row, psc):
         angle -= 0.2
     image_src = str(row[view])
     image_src = image_src.split('/')[-1]
-    image_src = os.path.join('./data_rec/IMG/', image_src)
-    if os.path.exists(image_src):
-        image = ndimage.imread(image_src)
-        psc += 1
-    else:
-        print(image_src, psc)
+    image_src = os.path.join('./data/IMG/', image_src)
+    image = ndimage.imread(image_src)
     return image, angle
 
-def generator(driving_log, psc,  batch_size=64, training=True):
+def generator(driving_log,  batch_size=64, training=True):
     images = np.zeros((batch_size, 160, 320, 3), dtype=np.float32)
     angles = np.zeros((batch_size,), dtype=np.float32)
     # Running a loop
@@ -114,7 +74,7 @@ def generator(driving_log, psc,  batch_size=64, training=True):
         for i in range(batch_size):
             rnd_row = randint(0,len(driving_log)-1)
             row = driving_log.iloc[rnd_row]
-            image, angle = load_image(row, psc)
+            image, angle = load_image(row)
             if training == True:
                 image, angle = augm_image(image, angle)
             #image = preprocess(image)
@@ -140,7 +100,7 @@ def aug_crop(image):
 # Main pipeline
 if __name__ == "__main__":
     # Path for csv
-    csv_path = 'data_rec/driving_log_pro.csv'
+    csv_path = 'data/driving_log.csv'
     # Read csv into driving_log
     driving_log = pd.read_csv(csv_path, names=['center', 'left', 'right', 'steer', 'throttle', 'brake', 'speed'])
     # Shuffle data in driving log
@@ -153,11 +113,10 @@ if __name__ == "__main__":
     # Hyperparameters
     EPOCHS = 19
     BATCH_SIZE = 128
-    psc = 1
     # Use generator to augment data (in case of training)
     print('# Generating data...')
-    gen_train = generator(train_data, psc,  batch_size=BATCH_SIZE, training=True)
-    gen_valid = generator(valid_data, psc, batch_size=BATCH_SIZE, training=False)
+    gen_train = generator(train_data,  batch_size=BATCH_SIZE, training=True)
+    gen_valid = generator(valid_data, batch_size=BATCH_SIZE, training=False)
     # Choose model
     if os.path.exists('model.h5'):
         model = load_model('model.h5')
