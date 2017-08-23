@@ -29,14 +29,6 @@ def training_model():
     model.compile(optimizer='adam', loss='mse')
     return model
 
-def preprocess(image):
-    # Crop image to ROI on street
-    img = aug_crop(image)
-    # Normalize
-    img = img / 255. - 0.5
-    # Resize and return
-    return cv2.resize(img, (64,64), interpolation=cv2.INTER_AREA)
-
 def augm_image(image, angle):
     # Get randomn for augmentation
     rnd = np.random.random(2)
@@ -77,7 +69,6 @@ def generator(driving_log,  batch_size=64, training=True):
             image, angle = load_image(row)
             if training == True:
                 image, angle = augm_image(image, angle)
-            #image = preprocess(image)
             images[i] = image
             angles[i] = angle
         yield images, angles
@@ -91,11 +82,6 @@ def aug_brightness(image):
     adj = .25 + np.random.random()
     image[:,:,2] = image[:,:,2]* adj
     return cv2.cvtColor(image, cv2.COLOR_HSV2RGB)
-
-def aug_crop(image):
-    top = 50
-    bottom = 30
-    return image[top:-bottom,:,:]
 
 # Main pipeline
 if __name__ == "__main__":
